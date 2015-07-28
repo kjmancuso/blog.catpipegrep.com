@@ -33,7 +33,7 @@ PAGE_SAVE_AS = 'pages/{slug}/index.html'
 
 # Plugins
 PLUGIN_PATHS = ['plugins']
-PLUGINS = ['tipue_search', 'social', 'pelican_fontawesome']
+PLUGINS = ['social', 'pelican_fontawesome']
 
 # Disable unused elements
 AUTHOR_SAVE_AS = ''
