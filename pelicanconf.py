@@ -33,7 +33,7 @@ PAGE_SAVE_AS = 'pages/{slug}/index.html'
 
 # Plugins
 PLUGIN_PATHS = ['plugins']
-PLUGINS = ['social', 'pelican_fontawesome']
+PLUGINS = ['sitemap', 'social', 'pelican_fontawesome']
 
 # Disable unused elements
 AUTHOR_SAVE_AS = ''
@@ -59,3 +59,18 @@ AUTHOR_FEED_RSS = None
 # External utils
 DISQUS_SITENAME = 'catpipegrep'
 GOOGLE_ANALYTICS = 'UA-47947008-1'
+
+# Sitemap
+SITEMAP = {
+    'format': 'xml',
+    'priorities': {
+        'articles': 0.8,
+        'indexes': 0.5,
+        'pages': 0.5
+    },
+    'changefreqs': {
+        'articles': 'weekly',
+        'indexes': 'daily',
+        'pages': 'weekly'
+    }
+}
