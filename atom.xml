@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>cat | grep</title><link href="http://blog.catpipegrep.com/" rel="alternate"></link><link href="http://blog.catpipegrep.com/atom.xml" rel="self"></link><id>http://blog.catpipegrep.com/</id><updated>2015-07-26T12:30:43-05:00</updated><entry><title>Music playback on machines with tiny storage</title><link href="http://blog.catpipegrep.com/posts/2015/07/26/macbook-music/" rel="alternate"></link><updated>2015-07-26T12:30:43-05:00</updated><author><name>Kevin Mancuso</name></author><id>tag:blog.catpipegrep.com,2015-07-26:posts/2015/07/26/macbook-music/</id><summary type="html">&lt;p&gt;With the advent of solid state storage, the once massive drives of spinning rust that shipped in laptops got faster but tinier. While the advent of streaming services (Spotify, Google Music, Pandora, etc) solved this for most people, I&amp;#8217;m a bit more traditional relying on my own library. I generally enjoy listening to music whilst working on the compute box, but I had three primary&amp;nbsp;requirements:&lt;/p&gt;
+&lt;ol class="arabic simple"&gt;
+&lt;li&gt;Not iTunes (are there non-muggles who like&amp;nbsp;iTunes?)&lt;/li&gt;
+&lt;li&gt;Leverages central storage for actual music data, as to not duplicate the data and save disk on&amp;nbsp;workstation&lt;/li&gt;
+&lt;li&gt;Allow for media control keys on the macbook keyboard to continue&amp;nbsp;working.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;I wanted a solution for being on the local network and another when&amp;nbsp;remote.&lt;/p&gt;
+&lt;div class="section" id="local"&gt;
+&lt;h2&gt;Local&lt;/h2&gt;
+&lt;p&gt;Wanting a light weight solution, I decided to fall back on &lt;a class="reference external" href="http://www.musicpd.org/"&gt;&lt;span class="caps"&gt;MPD&lt;/span&gt;&lt;/a&gt; controlled by &lt;a class="reference external" href="http://ncmpcpp.rybczak.net/"&gt;&lt;span class="caps"&gt;NCMPCPP&lt;/span&gt;&lt;/a&gt;.  The &lt;span class="caps"&gt;MPD&lt;/span&gt; instance on the macbook will get the metadata from a &lt;span class="caps"&gt;MPD&lt;/span&gt; instance on the &lt;span class="caps"&gt;NAS&lt;/span&gt;, and plays the FLACs natively from the &lt;span class="caps"&gt;NFS&lt;/span&gt; store on the &lt;span class="caps"&gt;NAS&lt;/span&gt;.&lt;/p&gt;
+&lt;p&gt;Since the &lt;span class="caps"&gt;NAS&lt;/span&gt; has no soundcard, I configured the &lt;a class="reference external" href="http://www.musicpd.org/doc/user/output_plugins.html"&gt;null audio output&lt;/a&gt; and it just hangs out scanning for new media and presents the database to the&amp;nbsp;network.&lt;/p&gt;
+&lt;p&gt;On the macbook I installed &lt;span class="caps"&gt;MPD&lt;/span&gt; via &lt;a class="reference external" href="http://brew.sh/"&gt;brew&lt;/a&gt; with the &lt;span class="caps"&gt;NFS&lt;/span&gt; option: &lt;tt class="docutils literal"&gt;brew install mpd &lt;span class="pre"&gt;--with-libnfs&lt;/span&gt;&lt;/tt&gt; and configured &lt;span class="caps"&gt;MPD&lt;/span&gt; to act as a &lt;a class="reference external" href="http://www.musicpd.org/doc/user/advanced_config.html#satellite"&gt;satellite&lt;/a&gt; with the following&amp;nbsp;configs:&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+music_directory &amp;quot;nfs://nas.local/mnt/music/&amp;quot;
+database {
+    plugin &amp;quot;proxy&amp;quot;
+    host &amp;quot;nas.local&amp;quot;
+}
+&lt;/pre&gt;
+&lt;p&gt;Now the local mpd/ncmpcpp plays all the flacs natively just fine from the &lt;span class="caps"&gt;NAS&lt;/span&gt;. But not having media keys were driving me crazy! When in doubt, just go to github and search for random projects to see if anyone already hacked something together. From there, I found &lt;a class="reference external" href="https://github.com/pushrax/osxmpdkeys"&gt;osxmpdkeys&lt;/a&gt;. Once I pointed it to the local &lt;span class="caps"&gt;MPD&lt;/span&gt; instance, the media keys just magically started working! Simple service to capture keypress and send it to the daemon.&amp;nbsp;Brilliant.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="remote"&gt;
+&lt;h2&gt;Remote&lt;/h2&gt;
+&lt;p&gt;On the &lt;span class="caps"&gt;NAS&lt;/span&gt; I also run an instance of &lt;a class="reference external" href="http://www.subsonic.org/"&gt;Subsonic&lt;/a&gt; for use on my phone, and for playback when I&amp;#8217;m out and about doing computing things. I used &lt;a class="reference external" href="https://www.clementine-player.org/"&gt;Clementine&lt;/a&gt;, a thick client player, for a while for Subsonic playback but it was a little too heavy. Since I actually like the Subsonic web interface, all I had to do was launch &lt;a class="reference external" href="http://beardedspice.com/"&gt;BeardedSpice&lt;/a&gt; and now I had media&amp;nbsp;keys.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="todo"&gt;
+&lt;h2&gt;&lt;span class="caps"&gt;TODO&lt;/span&gt;&lt;/h2&gt;
+&lt;p&gt;If I end up doing more remote computing, I reckon I will set up &lt;a class="reference external" href="https://www.mopidy.com/"&gt;Mopidy&lt;/a&gt; with a subsonic backend to maintain a consistant interface for playback. Also, BeardedSpice seems like a pretty squared away project so I may try writing a &lt;span class="caps"&gt;MPD&lt;/span&gt;&amp;nbsp;handler.&lt;/p&gt;
+&lt;/div&gt;
+</summary></entry></feed>
