@@ -11,7 +11,9 @@
 .. raw:: html
 	
 	<a href="https://github.com/kremlinkev" style="border-bottom: none;"><i class="fa fa-github fa-2x"></i></a>
-	<a href="https://twitter.com/kremlinkev" style="border-bottom: none;"><i class="fa fa-twitter fa-2x"></i></a><br><br>
+	<a href="https://twitter.com/kremlinkev" style="border-bottom: none;"><i class="fa fa-twitter fa-2x"></i></a>
+	<a href="https://keybase.io/kjmancuso" style="border-bottom: none;"><i class="fa fa-key fa-2x"></i></a>
+	<br><br>
 
 My name is Kevin Mancuso, I work on a computer, not on `hair <http://www.kevinmancuso.com>`_. This blog's intention is to be a place for me to jot down random things I encounter on my journey in the hope that someone googles for something and finds some usefulness in my experiences.
 

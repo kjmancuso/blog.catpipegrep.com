@@ -23,7 +23,7 @@ DISPLAY_BREADCRUMBS = False
 DISPLAY_PAGES_ON_MENU = False
 DISPLAY_CATEGORIES_ON_MENU = False
 DISPLAY_ARTICLE_INFO_ON_INDEX = True
-MENUITEMS = [('About', '/pages/about.html')]
+MENUITEMS = [('About', '/pages/about/')]
 
 # Paths for clean URLs
 ARTICLE_URL = 'posts/{date:%Y}/{date:%m}/{date:%d}/{slug}/'
