@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 AUTHOR = u'Kevin Mancuso'
 SITENAME = u'cat | grep'
 SITEURL = 'http://blog.catpipegrep.com'
-RELATIVE_URLS = False
+RELATIVE_URLS = True
 
 PATH = 'content'
 
@@ -42,9 +42,10 @@ TAG_SAVE_AS = ''
 DIRECT_TEMPLATES = (('index', 'archives', 'search'))
 
 # Paths
-STATIC_PATHS = ['images', 'extra/favicon.ico']
+STATIC_PATHS = ['images', 'extra/favicon.ico', 'extra/CNAME']
 EXTRA_PATH_METADATA = {
         'extra/favicon.ico': {'path': 'extra/favicon.ico'},
+        'extra/CNAME': {'path': 'CNAME'},
 }
 FAVICON = 'extra/favicon.ico'
 

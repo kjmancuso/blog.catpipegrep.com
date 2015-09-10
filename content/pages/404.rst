@@ -2,7 +2,7 @@
 :slug: 404
 :date: 2015-07-26 18:26:04
 :status: hidden
-:save_as: 404error.html
-:url: 404error.html
+:save_as: 404.html
+:url: 404.html
 
 FOUR ZERO FOUR, aint nothin found at that url. lol.
