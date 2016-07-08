@@ -1,5 +1,6 @@
 :title: Music playback on machines with tiny storage
 :slug: macbook-music
+:tags: music mpd osxmpdkeys subsonic
 :date: 2015-07-26 12:30:43
 
 With the advent of solid state storage, the once massive drives of spinning rust that shipped in laptops got faster but tinier. While the advent of streaming services (Spotify, Google Music, Pandora, etc) solved this for most people, I'm a bit more traditional relying on my own library. I generally enjoy listening to music whilst working on the compute box, but I had three primary requirements:
