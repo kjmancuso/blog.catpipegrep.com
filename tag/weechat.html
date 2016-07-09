@@ -1,35 +1,36 @@
 <!DOCTYPE html>
 <html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
 <head>
-    <title>cat | grep</title>
+    <title>weechat - cat | grep</title>
     <!-- Using the latest rendering mode for IE -->
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 
-    <link href="./extra/favicon.ico" rel="icon">
+    <link href="../extra/favicon.ico" rel="icon">
 
-<link rel="canonical" href=".">
-        <meta name="author" content="Kevin Mancuso" />
+
+    <meta name="author" content="Kevin Mancuso" />
+    <meta name="keywords" content="weechat" />
 
     <!-- Open Graph tags -->
         <meta property="og:site_name" content="cat | grep" />
         <meta property="og:type" content="website"/>
         <meta property="og:title" content="cat | grep"/>
-        <meta property="og:url" content="."/>
+        <meta property="og:url" content=".."/>
         <meta property="og:description" content="cat | grep"/>
 
 
     <!-- Bootstrap -->
-        <link rel="stylesheet" href="./theme/css/bootstrap.slate.min.css" type="text/css"/>
-    <link href="./theme/css/font-awesome.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="../theme/css/bootstrap.slate.min.css" type="text/css"/>
+    <link href="../theme/css/font-awesome.min.css" rel="stylesheet">
 
-    <link href="./theme/css/pygments/native.css" rel="stylesheet">
-        <link href="./theme/css/typogrify.css" rel="stylesheet">
-    <link rel="stylesheet" href="./theme/css/style.css" type="text/css"/>
+    <link href="../theme/css/pygments/native.css" rel="stylesheet">
+        <link href="../theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="../theme/css/style.css" type="text/css"/>
 
-        <link href="./atom.xml" type="application/atom+xml" rel="alternate"
+        <link href="../atom.xml" type="application/atom+xml" rel="alternate"
               title="cat | grep ATOM Feed"/>
 
 
@@ -47,7 +48,7 @@
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
             </button>
-            <a href="./" class="navbar-brand">
+            <a href="../" class="navbar-brand">
 cat | grep            </a>
         </div>
         <div class="collapse navbar-collapse navbar-ex1-collapse">
@@ -66,7 +67,7 @@ cat | grep            </a>
     <div class="row">
         <div class="col-lg-12">
             <article>
-                <h2><a href="./posts/2016/07/08/getting-started-letsencrypt/">Getting started with&nbsp;LetsEncrypt</a></h2>
+                <h2><a href="../posts/2016/07/08/getting-started-letsencrypt/">Getting started with&nbsp;LetsEncrypt</a></h2>
                     <div class="well well-sm">
 <footer class="post-info">
     <span class="label label-default">Date</span>
@@ -79,13 +80,13 @@ cat | grep            </a>
 
 
 <span class="label label-default">Tags</span>
-	<a href="./tag/letsencrypt.html">letsencrypt</a>
+	<a href="../tag/letsencrypt.html">letsencrypt</a>
         /
-	<a href="./tag/ansible.html">ansible</a>
+	<a href="../tag/ansible.html">ansible</a>
         /
-	<a href="./tag/subsonic.html">subsonic</a>
+	<a href="../tag/subsonic.html">subsonic</a>
         /
-	<a href="./tag/weechat.html">weechat</a>
+	<a href="../tag/weechat.html">weechat</a>
     
 </footer><!-- /.post-info -->                    </div>
                 <div class="summary"><p><a class="reference external" href="https://letsencrypt.org/">LetsEncrypt</a> really changed the <span class="caps">SSL</span> game, offering free certificates, but more than that offering them in a programatic way thus paving the way for a decent automation story. However the official client, now known as <a class="reference external" href="https://certbot.eff.org/">certbot</a>, is lacking on certain features. Luckily there are a slew of clients that speak the <a class="reference external" href="https://ietf-wg-acme.github.io/acme/"><span class="caps">ACME</span></a> protocol. After fiddling around with a few clients I wound up settling on a client written in Go named <a class="reference external" href="https://github.com/xenolf/lego">Lego</a>.</p>
@@ -274,64 +275,7 @@ done
 </div>
 </div>
 
-                    <a class="btn btn-default btn-xs" href="./posts/2016/07/08/getting-started-letsencrypt/">more ...</a>
-                </div>
-            </article>
-            <hr/>
-            <article>
-                <h2><a href="./posts/2015/07/26/macbook-music/">Music playback on machines with tiny&nbsp;storage</a></h2>
-                    <div class="well well-sm">
-<footer class="post-info">
-    <span class="label label-default">Date</span>
-    <span class="published">
-        <i class="fa fa-calendar"></i><time datetime="2015-07-26T12:30:43-05:00"> Sun 26 July 2015</time>
-    </span>
-
-
-
-
-
-<span class="label label-default">Tags</span>
-	<a href="./tag/music.html">music</a>
-        /
-	<a href="./tag/mpd.html">mpd</a>
-        /
-	<a href="./tag/osxmpdkeys.html">osxmpdkeys</a>
-        /
-	<a href="./tag/subsonic.html">subsonic</a>
-    
-</footer><!-- /.post-info -->                    </div>
-                <div class="summary"><p>With the advent of solid state storage, the once massive drives of spinning rust that shipped in laptops got faster but tinier. While the advent of streaming services (Spotify, Google Music, Pandora, etc) solved this for most people, I&#8217;m a bit more traditional relying on my own library. I generally enjoy listening to music whilst working on the compute box, but I had three primary&nbsp;requirements:</p>
-<ol class="arabic simple">
-<li>Not iTunes (are there non-muggles who like&nbsp;iTunes?)</li>
-<li>Leverages central storage for actual music data, as to not duplicate the data and save disk on&nbsp;workstation</li>
-<li>Allow for media control keys on the macbook keyboard to continue&nbsp;working.</li>
-</ol>
-<p>I wanted a solution for being on the local network and another when&nbsp;remote.</p>
-<div class="section" id="local">
-<h2>Local</h2>
-<p>Wanting a light weight solution, I decided to fall back on <a class="reference external" href="http://www.musicpd.org/"><span class="caps">MPD</span></a> controlled by <a class="reference external" href="http://ncmpcpp.rybczak.net/"><span class="caps">NCMPCPP</span></a>.  The <span class="caps">MPD</span> instance on the macbook will get the metadata from a <span class="caps">MPD</span> instance on the <span class="caps">NAS</span>, and plays the FLACs natively from the <span class="caps">NFS</span> store on the <span class="caps">NAS</span>.</p>
-<p>Since the <span class="caps">NAS</span> has no soundcard, I configured the <a class="reference external" href="http://www.musicpd.org/doc/user/output_plugins.html">null audio output</a> and it just hangs out scanning for new media and presents the database to the&nbsp;network.</p>
-<p>On the macbook I installed <span class="caps">MPD</span> via <a class="reference external" href="http://brew.sh/">brew</a> with the <span class="caps">NFS</span> option: <tt class="docutils literal">brew install mpd <span class="pre">--with-libnfs</span></tt> and configured <span class="caps">MPD</span> to act as a <a class="reference external" href="http://www.musicpd.org/doc/user/advanced_config.html#satellite">satellite</a> with the following&nbsp;configs:</p>
-<pre class="literal-block">
-music_directory &quot;nfs://nas.local/mnt/music/&quot;
-database {
-    plugin &quot;proxy&quot;
-    host &quot;nas.local&quot;
-}
-</pre>
-<p>Now the local mpd/ncmpcpp plays all the flacs natively just fine from the <span class="caps">NAS</span>. But not having media keys were driving me crazy! When in doubt, just go to github and search for random projects to see if anyone already hacked something together. From there, I found <a class="reference external" href="https://github.com/pushrax/osxmpdkeys">osxmpdkeys</a>. Once I pointed it to the local <span class="caps">MPD</span> instance, the media keys just magically started working! Simple service to capture keypress and send it to the daemon.&nbsp;Brilliant.</p>
-</div>
-<div class="section" id="remote">
-<h2>Remote</h2>
-<p>On the <span class="caps">NAS</span> I also run an instance of <a class="reference external" href="http://www.subsonic.org/">Subsonic</a> for use on my phone, and for playback when I&#8217;m out and about doing computing things. I used <a class="reference external" href="https://www.clementine-player.org/">Clementine</a>, a thick client player, for a while for Subsonic playback but it was a little too heavy. Since I actually like the Subsonic web interface, all I had to do was launch <a class="reference external" href="http://beardedspice.com/">BeardedSpice</a> and now I had media&nbsp;keys.</p>
-</div>
-<div class="section" id="todo">
-<h2><span class="caps">TODO</span></h2>
-<p>If I end up doing more remote computing, I reckon I will set up <a class="reference external" href="https://www.mopidy.com/">Mopidy</a> with a subsonic backend to maintain a consistant interface for playback. Also, BeardedSpice seems like a pretty squared away project so I may try writing a <span class="caps">MPD</span>&nbsp;handler.</p>
-</div>
-
-                    <a class="btn btn-default btn-xs" href="./posts/2015/07/26/macbook-music/">more ...</a>
+                    <a class="btn btn-default btn-xs" href="../posts/2016/07/08/getting-started-letsencrypt/">more ...</a>
                 </div>
             </article>
             <hr/>
@@ -351,13 +295,13 @@ database {
       </div>
    </div>
 </footer>
-<script src="./theme/js/jquery.min.js"></script>
+<script src="../theme/js/jquery.min.js"></script>
 
 <!-- Include all compiled plugins (below), or include individual files as needed -->
-<script src="./theme/js/bootstrap.min.js"></script>
+<script src="../theme/js/bootstrap.min.js"></script>
 
 <!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
-<script src="./theme/js/respond.min.js"></script>
+<script src="../theme/js/respond.min.js"></script>
 
     <!-- Disqus -->
     <script type="text/javascript">
