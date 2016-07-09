@@ -15,6 +15,7 @@ TIMEZONE = 'America/Chicago'
 DEFAULT_LANG = u'en'
 THEME = 'themes/pelican-bootstrap3'
 BOOTSTRAP_THEME = 'slate'
+DOCUTIL_CSS= True
 HIDE_SIDEBAR = True
 TYPOGRIFY = True
 SUMMARY_MAX_LENGTH = None
