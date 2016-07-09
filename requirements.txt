@@ -1,0 +1,5 @@
+pelican
+ghp-import
+pelican-social
+typogrify
+pelican-fontawesome
