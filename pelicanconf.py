@@ -4,8 +4,8 @@ from __future__ import unicode_literals
 
 AUTHOR = u'Kevin Mancuso'
 SITENAME = u'cat | grep'
-SITEURL = 'http://blog.catpipegrep.com'
-RELATIVE_URLS = True
+SITEURL = 'https://blog.catpipegrep.com'
+RELATIVE_URLS = False
 
 PATH = 'content'
 
@@ -24,7 +24,8 @@ DISPLAY_BREADCRUMBS = False
 DISPLAY_PAGES_ON_MENU = False
 DISPLAY_CATEGORIES_ON_MENU = False
 DISPLAY_ARTICLE_INFO_ON_INDEX = True
-MENUITEMS = [('About', '/pages/about/')]
+MENUITEMS = [('About', '/pages/about/'),
+             ('Archives', '/archives')]
 
 # Paths for clean URLs
 ARTICLE_URL = 'posts/{date:%Y}/{date:%m}/{date:%d}/{slug}/'
@@ -45,8 +46,8 @@ DIRECT_TEMPLATES = (('index', 'archives', 'search'))
 # Paths
 STATIC_PATHS = ['images', 'extra/favicon.ico', 'extra/CNAME']
 EXTRA_PATH_METADATA = {
-        'extra/favicon.ico': {'path': 'extra/favicon.ico'},
-        'extra/CNAME': {'path': 'CNAME'},
+    'extra/favicon.ico': {'path': 'extra/favicon.ico'},
+    'extra/CNAME': {'path': 'CNAME'},
 }
 FAVICON = 'extra/favicon.ico'
 
