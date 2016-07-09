@@ -1,6 +1,6 @@
 :title: Getting started with LetsEncrypt
 :slug: getting-started-letsencrypt
-:tags: letsencrypt ansible subsonic weechat
+:tags: letsencrypt, ansible, subsonic, weechat
 :date: 2016-07-08 22:19:22
 
 `LetsEncrypt <https://letsencrypt.org/>`_ really changed the SSL game, offering free certificates, but more than that offering them in a programatic way thus paving the way for a decent automation story. However the official client, now known as `certbot <https://certbot.eff.org/>`_, is lacking on certain features. Luckily there are a slew of clients that speak the `ACME <https://ietf-wg-acme.github.io/acme/>`_ protocol. After fiddling around with a few clients I wound up settling on a client written in Go named `Lego <https://github.com/xenolf/lego>`_.

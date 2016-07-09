@@ -38,7 +38,7 @@ PLUGINS = ['sitemap', 'social', 'pelican_fontawesome']
 # Disable unused elements
 AUTHOR_SAVE_AS = ''
 CATEGORY_SAVE_AS = ''
-TAG_SAVE_AS = ''
+TAG_SAVE_AS = 'tag/{slug}.html'
 DIRECT_TEMPLATES = (('index', 'archives', 'search'))
 
 # Paths
