@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns# fb: https://www.facebook.com/2008/fbml">
+<head>
+    <title>Getting started with LetsEncrypt - cat | grep</title>
+    <!-- Using the latest rendering mode for IE -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+    <link href="../../../../../extra/favicon.ico" rel="icon">
+
+<link rel="canonical" href="../../../../../posts/2015/07/26/getting-started-letsencrypt/">
+
+        <meta name="author" content="Kevin Mancuso" />
+        <meta name="keywords" content="letsencrypt ansible subsonic weechat" />
+        <meta name="description" content="LetsEncrypt really changed the SSL game, offering free certificates, but more than that offering them in a programatic way thus paving the way for a decent automation story. However the official client, now known as certbot, is lacking on certain features. Luckily there are a slew of clients that speak the ACME protocol. After fiddling around with a few clients I wound up settling on a client written in Go named Lego. Obtaining the cert I wanted a central location to manage my certificate lifecycle as well as having a single repository to handle the orchestration of the deployment of such certificates. As such, the default mechanism of dropping a challenge file in a webroot wouldn’t work, as well as a few of the things I run don’t lend itself to such an auth mechanism. In favor of this, I decided to leverage dns-01 instead. I like things tidy, so I keep everything inside of a directory structure as follows in /opt/: lego ├── ansible // Where I keep the installation automation playbooks │   └── roles │   ├── host1 │   │   ├── files │   │   ├── handlers │   │   └── tasks │   ├── host2 │   │   ├── files │   │   ├── handlers │   │   └── tasks │   └── host3 │   ├── files │   ├── handlers │   └── tasks ├── bin // Lego bin lives here and misc scripts └── data // Where Lego writes its goods ├── accounts │   └── acme-v01.api.letsencrypt.org │   └── email@example.com │   └── keys └── certificates // Here be certs Since I am using the dns-01 challenge with AWS Route53, the following environment variables must be defined: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY. Ensure there is a proper IAM role defined for this task, as well a corresponding policy. The Lego README provides an example policy which will get you going: { &#34;Version&#34;: &#34;2012-10-17&#34;, &#34;Statement&#34;: [ { &#34;Effect&#34;: &#34;Allow&#34;, &#34;Action&#34;: [ &#34;route53:GetChange&#34;, &#34;route53:ListHostedZonesByName&#34; ], &#34;Resource&#34;: [ &#34;*&#34; ] }, { &#34;Effect&#34;: &#34;Allow&#34;, &#34;Action&#34;: [ &#34;route53:ChangeResourceRecordSets&#34; ], &#34;Resource&#34;: [ &#34;arn:aws:route53:::hostedzone/&lt;INSERT_YOUR_HOSTED_ZONE_ID_HERE&gt;&#34; ] } ] } If you have multiple domains, in the second resource block just add a second ARN in a comma separated list. Or if you are less particular in doing things right and want to be looser on security, add arn:aws:route53:::hostedzone/* to allow modifications to all domains. With that done, we can finally get our certs! This is as simple as: AWS_ACCESS_KEY_ID=&#34;&lt;accessid&gt;&#34; AWS_SECRET_ACCESS_KEY=&#34;&lt;secretkey&gt;&#34; /opt/lego/bin/lego -a --path=&#34;/opt/lego/data/&#34; --email=&#34;email@example.com&#34; --domain=&#34;domain.com&#34; --dns route53 run Arguments are: -a Acknowledges that you agree to the current LetsEncrypt terms of service --path Where to stick the certs and account information --email The identity you want to use to register the cert with, they send you things like expiration notices --domain The domain you want to get the cert for --dns Specifies the DNS challenge, in this case route 53 You will notice that it both creates the DNS resource record to satisfy the challenge, and if everything went swimmingly will cleanup said record leaving things nice and tidy. Renewing the certs With the cert obtained, we need to ensure that the certs get renewed with the standard 90 day life of a LetsEncrypt certificate. This is as simple as changing run to renew and adding --days 30 to renew it within 30 days of expiration. But since we want to automate this, lets make a little script to do this for us: #!/bin/bash DOMAINS=&#34;example.com example.org example.net&#34;&#34; AWS_ACCESS_KEY_ID=&#34;&lt;access_key&gt;&#34; AWS_SECRET_ACCESS_KEY=&#34;&lt;secret_key&gt;&#34; for domain in $DOMAINS; do /opt/lego/bin/lego -a --path=&#34;/opt/lego/data/&#34; --email=&#34;email@example.com&#34; --domains=&#34;$domain&#34; --dns route53 renew --days 30 done This will iterate through the list of $DOMAINS and will renew each one. I threw this in a cronjob to run every night, but a systemd timer is nice too if you swing that way. Installing the certs There probably is a more elegant way of approaching this, but Ansible seemed perfect for what is being done here. It will ensure the certs are placed on the remote servers, and will execute actions if an update has happened and will noop otherwise. A basic boilerplate requires your inventory defined, I call mine hosts.ini. In my playbook I define each host as a role to customize how each server needs to be handled. My playbook certificates.yaml looks as follows: - hosts: host1 sudo: yes roles: - {role: &#39;roles/host1&#39;} Inside of each role’s files directory I then symlink the cert and key in /opt/lego/data/certificates/ and define the specific installation plays in tasks. Once your playbook looks and acts reasonably, cron it out: ansible-playbook -i /opt/lego/ansible/hosts.ini /opt/lego/ansible/certificates.yaml &gt; /dev/null Installation for Subsonic Since Subsonic runs java, we have to deal with the goofy keytool shenanigans. So the task I have defined for this server resembles: --- - name: Install certs copy: src={{ item }} dest=/opt/subsonic/ssl/{{ item }} mode=0600 with_items: - subsonic.example.com.crt - subsonic.example.com.key notify: - generate keystore - restart subsonic With a handler definition resembling the following: - name: generate keystore shell: /opt/subsonic/ssl/keytool.sh - name: restart subsonic service: name=subsonic state=restarted keytool.sh is just a simple incarnation of the commands to convert the pems into the format that java is happy with: #!/bin/bash /usr/bin/openssl pkcs12 -in /opt/subsonic/ssl/subsonic.example.com.crt -inkey /opt/subsonic/ssl/subsonic.example.com.key key -export -out /opt/subsonic/ssl/subsonic.pkcs12 -password pass:subsonic /usr/bin/keytool -importkeystore -srckeystore /opt/subsonic/ssl/subsonic.pkcs12 -destkeystore /opt/subsonic/ssl/subsonic.keystore -srcstoretype PKCS12 -srcstorepass subsonic -deststorepass subsonic -srcalias 1 -destalias subsonic /usr/bin/zip -j /opt/subsonic/subsonic-booter-jar-with-dependencies.jar /opt/subsonic/ssl/subsonic.keystore /bin/rm /opt/subsonic/ssl/subsonic.keystore /opt/subsonic/ssl/subsonic.pkcs12 Installation for weechat The very capable IRC client weechat has a relay protocol allowing for remote access to the client from other things, such as a mobile browser such as Glowing Bear which I use to access IRC from my iOS devices. This assumes weechat relay is already set up, to start encrypting programatically we need a task defined similiar to: - name: Install certs for weechat copy: src={{ item }} dest=/home/taco/.weechat/certs/{{ item }} mode=600 with_items: - weechat.example.com.crt - weechat.example.com.key notify: - reload weechat certs And a handler such as: - name: reload weechat certs shell: /home/taco/.weechat/reloadcert.sh Since reloadcert.sh will send a /relay sslcertkey via the fifo channel, ensure your weechat has it enabled with plugins.var.fifo.fifo = on. If it’s on inside your .weechat directory you will find a file resembling weechat_fifo_123 with the suffix numbers indicating pid. #!/bin/bash cat /home/taco/.weechat/certs/weechat.example.com.key /home/taco/.weechat/certs/weechat.example.com.crt &gt; /home/taco/.weechat/certs/relay.pem for fifo in /home/taco/.weechat/weechat_fifo_* do printf &#39;%b&#39; &#39;*/relay sslcertkey\n&#39; &gt; &#34;$fifo&#34; done This will send the reload to all running weechat instances, but is mostly harmless if the certpaths are configured correctly." />
+
+        <meta property="og:site_name" content="cat | grep" />
+        <meta property="og:type" content="article"/>
+        <meta property="og:title" content="Getting started with LetsEncrypt"/>
+        <meta property="og:url" content="../../../../../posts/2015/07/26/getting-started-letsencrypt/"/>
+        <meta property="og:description" content="LetsEncrypt really changed the SSL game, offering free certificates, but more than that offering them in a programatic way thus paving the way for a decent automation story. However the official client, now known as certbot, is lacking on certain features. Luckily there are a slew of clients that speak the ACME protocol. After fiddling around with a few clients I wound up settling on a client written in Go named Lego. Obtaining the cert I wanted a central location to manage my certificate lifecycle as well as having a single repository to handle the orchestration of the deployment of such certificates. As such, the default mechanism of dropping a challenge file in a webroot wouldn’t work, as well as a few of the things I run don’t lend itself to such an auth mechanism. In favor of this, I decided to leverage dns-01 instead. I like things tidy, so I keep everything inside of a directory structure as follows in /opt/: lego ├── ansible // Where I keep the installation automation playbooks │   └── roles │   ├── host1 │   │   ├── files │   │   ├── handlers │   │   └── tasks │   ├── host2 │   │   ├── files │   │   ├── handlers │   │   └── tasks │   └── host3 │   ├── files │   ├── handlers │   └── tasks ├── bin // Lego bin lives here and misc scripts └── data // Where Lego writes its goods ├── accounts │   └── acme-v01.api.letsencrypt.org │   └── email@example.com │   └── keys └── certificates // Here be certs Since I am using the dns-01 challenge with AWS Route53, the following environment variables must be defined: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY. Ensure there is a proper IAM role defined for this task, as well a corresponding policy. The Lego README provides an example policy which will get you going: { &#34;Version&#34;: &#34;2012-10-17&#34;, &#34;Statement&#34;: [ { &#34;Effect&#34;: &#34;Allow&#34;, &#34;Action&#34;: [ &#34;route53:GetChange&#34;, &#34;route53:ListHostedZonesByName&#34; ], &#34;Resource&#34;: [ &#34;*&#34; ] }, { &#34;Effect&#34;: &#34;Allow&#34;, &#34;Action&#34;: [ &#34;route53:ChangeResourceRecordSets&#34; ], &#34;Resource&#34;: [ &#34;arn:aws:route53:::hostedzone/&lt;INSERT_YOUR_HOSTED_ZONE_ID_HERE&gt;&#34; ] } ] } If you have multiple domains, in the second resource block just add a second ARN in a comma separated list. Or if you are less particular in doing things right and want to be looser on security, add arn:aws:route53:::hostedzone/* to allow modifications to all domains. With that done, we can finally get our certs! This is as simple as: AWS_ACCESS_KEY_ID=&#34;&lt;accessid&gt;&#34; AWS_SECRET_ACCESS_KEY=&#34;&lt;secretkey&gt;&#34; /opt/lego/bin/lego -a --path=&#34;/opt/lego/data/&#34; --email=&#34;email@example.com&#34; --domain=&#34;domain.com&#34; --dns route53 run Arguments are: -a Acknowledges that you agree to the current LetsEncrypt terms of service --path Where to stick the certs and account information --email The identity you want to use to register the cert with, they send you things like expiration notices --domain The domain you want to get the cert for --dns Specifies the DNS challenge, in this case route 53 You will notice that it both creates the DNS resource record to satisfy the challenge, and if everything went swimmingly will cleanup said record leaving things nice and tidy. Renewing the certs With the cert obtained, we need to ensure that the certs get renewed with the standard 90 day life of a LetsEncrypt certificate. This is as simple as changing run to renew and adding --days 30 to renew it within 30 days of expiration. But since we want to automate this, lets make a little script to do this for us: #!/bin/bash DOMAINS=&#34;example.com example.org example.net&#34;&#34; AWS_ACCESS_KEY_ID=&#34;&lt;access_key&gt;&#34; AWS_SECRET_ACCESS_KEY=&#34;&lt;secret_key&gt;&#34; for domain in $DOMAINS; do /opt/lego/bin/lego -a --path=&#34;/opt/lego/data/&#34; --email=&#34;email@example.com&#34; --domains=&#34;$domain&#34; --dns route53 renew --days 30 done This will iterate through the list of $DOMAINS and will renew each one. I threw this in a cronjob to run every night, but a systemd timer is nice too if you swing that way. Installing the certs There probably is a more elegant way of approaching this, but Ansible seemed perfect for what is being done here. It will ensure the certs are placed on the remote servers, and will execute actions if an update has happened and will noop otherwise. A basic boilerplate requires your inventory defined, I call mine hosts.ini. In my playbook I define each host as a role to customize how each server needs to be handled. My playbook certificates.yaml looks as follows: - hosts: host1 sudo: yes roles: - {role: &#39;roles/host1&#39;} Inside of each role’s files directory I then symlink the cert and key in /opt/lego/data/certificates/ and define the specific installation plays in tasks. Once your playbook looks and acts reasonably, cron it out: ansible-playbook -i /opt/lego/ansible/hosts.ini /opt/lego/ansible/certificates.yaml &gt; /dev/null Installation for Subsonic Since Subsonic runs java, we have to deal with the goofy keytool shenanigans. So the task I have defined for this server resembles: --- - name: Install certs copy: src={{ item }} dest=/opt/subsonic/ssl/{{ item }} mode=0600 with_items: - subsonic.example.com.crt - subsonic.example.com.key notify: - generate keystore - restart subsonic With a handler definition resembling the following: - name: generate keystore shell: /opt/subsonic/ssl/keytool.sh - name: restart subsonic service: name=subsonic state=restarted keytool.sh is just a simple incarnation of the commands to convert the pems into the format that java is happy with: #!/bin/bash /usr/bin/openssl pkcs12 -in /opt/subsonic/ssl/subsonic.example.com.crt -inkey /opt/subsonic/ssl/subsonic.example.com.key key -export -out /opt/subsonic/ssl/subsonic.pkcs12 -password pass:subsonic /usr/bin/keytool -importkeystore -srckeystore /opt/subsonic/ssl/subsonic.pkcs12 -destkeystore /opt/subsonic/ssl/subsonic.keystore -srcstoretype PKCS12 -srcstorepass subsonic -deststorepass subsonic -srcalias 1 -destalias subsonic /usr/bin/zip -j /opt/subsonic/subsonic-booter-jar-with-dependencies.jar /opt/subsonic/ssl/subsonic.keystore /bin/rm /opt/subsonic/ssl/subsonic.keystore /opt/subsonic/ssl/subsonic.pkcs12 Installation for weechat The very capable IRC client weechat has a relay protocol allowing for remote access to the client from other things, such as a mobile browser such as Glowing Bear which I use to access IRC from my iOS devices. This assumes weechat relay is already set up, to start encrypting programatically we need a task defined similiar to: - name: Install certs for weechat copy: src={{ item }} dest=/home/taco/.weechat/certs/{{ item }} mode=600 with_items: - weechat.example.com.crt - weechat.example.com.key notify: - reload weechat certs And a handler such as: - name: reload weechat certs shell: /home/taco/.weechat/reloadcert.sh Since reloadcert.sh will send a /relay sslcertkey via the fifo channel, ensure your weechat has it enabled with plugins.var.fifo.fifo = on. If it’s on inside your .weechat directory you will find a file resembling weechat_fifo_123 with the suffix numbers indicating pid. #!/bin/bash cat /home/taco/.weechat/certs/weechat.example.com.key /home/taco/.weechat/certs/weechat.example.com.crt &gt; /home/taco/.weechat/certs/relay.pem for fifo in /home/taco/.weechat/weechat_fifo_* do printf &#39;%b&#39; &#39;*/relay sslcertkey\n&#39; &gt; &#34;$fifo&#34; done This will send the reload to all running weechat instances, but is mostly harmless if the certpaths are configured correctly."/>
+        <meta property="article:published_time" content="2015-07-26" />
+            <meta property="article:section" content="misc" />
+            <meta property="article:tag" content="letsencrypt ansible subsonic weechat" />
+            <meta property="article:author" content="Kevin Mancuso" />
+
+
+    <!-- Bootstrap -->
+        <link rel="stylesheet" href="../../../../../theme/css/bootstrap.slate.min.css" type="text/css"/>
+    <link href="../../../../../theme/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="../../../../../theme/css/pygments/native.css" rel="stylesheet">
+        <link href="../../../../../theme/css/typogrify.css" rel="stylesheet">
+    <link rel="stylesheet" href="../../../../../theme/css/style.css" type="text/css"/>
+
+        <link href="../../../../../atom.xml" type="application/atom+xml" rel="alternate"
+              title="cat | grep ATOM Feed"/>
+
+
+
+
+</head>
+<body>
+
+<div class="navbar navbar-default navbar-fixed-top" role="navigation">
+	<div class="container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="../../../../../" class="navbar-brand">
+cat | grep            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-ex1-collapse">
+            <ul class="nav navbar-nav">
+                    <li><a href="/pages/about/">About</a></li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+              <li><a href="../../../../../archives.html"><i class="fa fa-th-list"></i><span class="icon-label">Archives</span></a></li>
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+</div> <!-- /.navbar -->
+<!-- Banner -->
+<!-- End Banner -->
+<div class="container">
+    <div class="row">
+        <div class="col-lg-12">
+    <section id="content">
+        <article>
+            <header class="page-header">
+                <h1>
+                    <a href="../../../../../posts/2015/07/26/getting-started-letsencrypt/"
+                       rel="bookmark"
+                       title="Permalink to Getting started with LetsEncrypt">
+                        Getting started with&nbsp;LetsEncrypt
+                    </a>
+                </h1>
+            </header>
+            <div class="entry-content">
+                <div class="panel">
+                    <div class="panel-body">
+<footer class="post-info">
+    <span class="label label-default">Date</span>
+    <span class="published">
+        <i class="fa fa-calendar"></i><time datetime="2015-07-26T12:30:43-05:00"> Sun 26 July 2015</time>
+    </span>
+
+
+
+
+
+<span class="label label-default">Tags</span>
+	<a href="../../../../../tag/letsencrypt-ansible-subsonic-weechat.html">letsencrypt ansible subsonic weechat</a>
+    
+</footer><!-- /.post-info -->                    </div>
+                </div>
+                <p><a class="reference external" href="https://letsencrypt.org/">LetsEncrypt</a> really changed the <span class="caps">SSL</span> game, offering free certificates, but more than that offering them in a programatic way thus paving the way for a decent automation story. However the official client, now known as <a class="reference external" href="https://certbot.eff.org/">certbot</a>, is lacking on certain features. Luckily there are a slew of clients that speak the <a class="reference external" href="https://ietf-wg-acme.github.io/acme/"><span class="caps">ACME</span></a> protocol. After fiddling around with a few clients I wound up settling on a client written in Go named <a class="reference external" href="https://github.com/xenolf/lego">Lego</a>.</p>
+<div class="section" id="obtaining-the-cert">
+<h2><a class="reference internal" href="#obtaining-the-cert">Obtaining the&nbsp;cert</a></h2>
+<p>I wanted a central location to manage my certificate lifecycle as well as having a single repository to handle the orchestration of the deployment of such certificates. As such, the default mechanism of dropping a challenge file in a webroot wouldn&#8217;t work, as well as a few of the things I run don&#8217;t lend itself to such an auth mechanism. In favor of this, I decided to leverage <a class="reference external" href="https://ietf-wg-acme.github.io/acme/#rfc.section.7.4">dns-01</a>&nbsp;instead.</p>
+<p>I like things tidy, so I keep everything inside of a directory structure as follows in <tt class="docutils literal">/opt/</tt>:</p>
+<pre class="literal-block">
+lego
+├── ansible // Where I keep the installation automation playbooks
+│&nbsp;&nbsp; └── roles
+│&nbsp;&nbsp;     ├── host1
+│&nbsp;&nbsp;     │&nbsp;&nbsp; ├── files
+│&nbsp;&nbsp;     │&nbsp;&nbsp; ├── handlers
+│&nbsp;&nbsp;     │&nbsp;&nbsp; └── tasks
+│&nbsp;&nbsp;     ├── host2
+│&nbsp;&nbsp;     │&nbsp;&nbsp; ├── files
+│&nbsp;&nbsp;     │&nbsp;&nbsp; ├── handlers
+│&nbsp;&nbsp;     │&nbsp;&nbsp; └── tasks
+│&nbsp;&nbsp;     └── host3
+│&nbsp;&nbsp;         ├── files
+│&nbsp;&nbsp;         ├── handlers
+│&nbsp;&nbsp;         └── tasks
+├── bin // Lego bin lives here and misc scripts
+└── data // Where Lego writes its goods
+    ├── accounts
+        │&nbsp;&nbsp; └── acme-v01.api.letsencrypt.org
+            │&nbsp;&nbsp;     └── email&#64;example.com
+                │&nbsp;&nbsp;         └── keys
+                    └── certificates // Here be certs
+</pre>
+<p>Since I am using the <tt class="docutils literal"><span class="pre">dns-01</span></tt> challenge with <span class="caps">AWS</span> Route53, the following environment variables must be defined: <tt class="docutils literal">AWS_ACCESS_KEY_ID</tt> and <tt class="docutils literal">AWS_SECRET_ACCESS_KEY</tt>. Ensure there is a proper <span class="caps">IAM</span> role defined for this task, as well a corresponding policy. The Lego <span class="caps">README</span> provides an example policy which will get you&nbsp;going:</p>
+<pre class="literal-block">
+{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Action&quot;: [
+                &quot;route53:GetChange&quot;,
+                &quot;route53:ListHostedZonesByName&quot;
+            ],
+            &quot;Resource&quot;: [
+                &quot;*&quot;
+            ]
+        },
+        {
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Action&quot;: [
+                &quot;route53:ChangeResourceRecordSets&quot;
+            ],
+            &quot;Resource&quot;: [
+                &quot;arn:aws:route53:::hostedzone/&lt;INSERT_YOUR_HOSTED_ZONE_ID_HERE&gt;&quot;
+            ]
+        }
+    ]
+}
+</pre>
+<p>If you have multiple domains, in the second resource block just add a second <span class="caps">ARN</span> in a comma separated list. Or if you are less particular in doing things right and want to be looser on security, add <tt class="docutils literal"><span class="pre">arn:aws:route53:::hostedzone/*</span></tt> to allow modifications to all&nbsp;domains.</p>
+<p>With that done, we can finally get our certs! This is as simple&nbsp;as:</p>
+<pre class="literal-block">
+AWS_ACCESS_KEY_ID=&quot;&lt;accessid&gt;&quot; AWS_SECRET_ACCESS_KEY=&quot;&lt;secretkey&gt;&quot; /opt/lego/bin/lego -a --path=&quot;/opt/lego/data/&quot; --email=&quot;email&#64;example.com&quot; --domain=&quot;domain.com&quot; --dns route53 run
+</pre>
+<dl class="docutils">
+<dt>Arguments&nbsp;are:</dt>
+<dd><table class="first last docutils option-list" frame="void" rules="none">
+<col class="option" />
+<col class="description" />
+<tbody valign="top">
+<tr><td class="option-group">
+<kbd><span class="option">-a</span></kbd></td>
+<td>Acknowledges that you agree to the current LetsEncrypt terms of service</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">--path</span></kbd></td>
+<td>Where to stick the certs and account information</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">--email</span></kbd></td>
+<td>The identity you want to use to register the cert with, they send you things like expiration notices</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">--domain</span></kbd></td>
+<td>The domain you want to get the cert for</td></tr>
+<tr><td class="option-group">
+<kbd><span class="option">--dns</span></kbd></td>
+<td>Specifies the <span class="caps">DNS</span> challenge, in this case route 53</td></tr>
+</tbody>
+</table>
+</dd>
+</dl>
+<p>You will notice that it both creates the <span class="caps">DNS</span> resource record to satisfy the challenge, and if everything went swimmingly will cleanup said record leaving things nice and&nbsp;tidy.</p>
+</div>
+<div class="section" id="renewing-the-certs">
+<h2><a class="reference internal" href="#renewing-the-certs">Renewing the&nbsp;certs</a></h2>
+<p>With the cert obtained, we need to ensure that the certs get renewed with the standard 90 day life of a LetsEncrypt certificate. This is as simple as changing <tt class="docutils literal">run</tt> to <tt class="docutils literal">renew</tt> and adding <tt class="docutils literal"><span class="pre">--days</span> 30</tt> to renew it within 30 days of&nbsp;expiration.</p>
+<p>But since we want to automate this, lets make a little script to do this for&nbsp;us:</p>
+<pre class="literal-block">
+#!/bin/bash
+
+DOMAINS=&quot;example.com example.org example.net&quot;&quot;
+AWS_ACCESS_KEY_ID=&quot;&lt;access_key&gt;&quot;
+AWS_SECRET_ACCESS_KEY=&quot;&lt;secret_key&gt;&quot;
+
+for domain in $DOMAINS; do
+    /opt/lego/bin/lego -a --path=&quot;/opt/lego/data/&quot; --email=&quot;email&#64;example.com&quot; --domains=&quot;$domain&quot; --dns route53 renew --days 30
+    done
+</pre>
+<p>This will iterate through the list of <tt class="docutils literal">$<span class="caps">DOMAINS</span></tt> and will renew each one. I threw this in a cronjob to run every night, but a systemd timer is nice too if you swing that&nbsp;way.</p>
+</div>
+<div class="section" id="installing-the-certs">
+<h2><a class="reference internal" href="#installing-the-certs">Installing the&nbsp;certs</a></h2>
+<p>There probably is a more elegant way of approaching this, but Ansible seemed perfect for what is being done here. It will ensure the certs are placed on the remote servers, and will execute actions if an update has happened and will noop otherwise. A basic boilerplate requires your <a class="reference external" href="http://docs.ansible.com/ansible/intro_inventory.html">inventory</a> defined, I call mine <cite>hosts.ini</cite>. In my playbook I define each host as a role to customize how each server needs to be handled. My playbook <tt class="docutils literal">certificates.yaml</tt> looks as&nbsp;follows:</p>
+<pre class="literal-block">
+- hosts: host1
+  sudo: yes
+  roles:
+      - {role: 'roles/host1'}
+</pre>
+<p>Inside of each role&#8217;s <tt class="docutils literal">files</tt> directory I then symlink the cert and key in <tt class="docutils literal">/opt/lego/data/certificates/</tt> and define the specific installation plays in <tt class="docutils literal">tasks</tt>.</p>
+<p>Once your playbook looks and acts reasonably, cron it&nbsp;out:</p>
+<pre class="literal-block">
+ansible-playbook -i /opt/lego/ansible/hosts.ini /opt/lego/ansible/certificates.yaml &gt; /dev/null
+</pre>
+<div class="section" id="installation-for-subsonic">
+<h3><a class="reference internal" href="#installation-for-subsonic">Installation for&nbsp;Subsonic</a></h3>
+<p>Since <a class="reference external" href="http://subsonic.org">Subsonic</a> runs java, we have to deal with the goofy keytool shenanigans. So the task I have defined for this server&nbsp;resembles:</p>
+<pre class="literal-block">
+---
+- name: Install certs
+  copy: src={{ item }} dest=/opt/subsonic/ssl/{{ item }} mode=0600
+  with_items:
+      - subsonic.example.com.crt
+      - subsonic.example.com.key
+  notify:
+      - generate keystore
+      - restart subsonic
+</pre>
+<p>With a <tt class="docutils literal">handler</tt> definition resembling the&nbsp;following:</p>
+<pre class="literal-block">
+- name: generate keystore
+  shell: /opt/subsonic/ssl/keytool.sh
+
+- name: restart subsonic
+  service: name=subsonic state=restarted
+</pre>
+<p>keytool.sh is just a simple incarnation of the commands to convert the pems into the format that java is happy&nbsp;with:</p>
+<pre class="literal-block">
+#!/bin/bash
+
+/usr/bin/openssl pkcs12 -in /opt/subsonic/ssl/subsonic.example.com.crt -inkey /opt/subsonic/ssl/subsonic.example.com.key key -export -out /opt/subsonic/ssl/subsonic.pkcs12 -password pass:subsonic
+
+/usr/bin/keytool -importkeystore -srckeystore /opt/subsonic/ssl/subsonic.pkcs12 -destkeystore /opt/subsonic/ssl/subsonic.keystore -srcstoretype PKCS12 -srcstorepass subsonic -deststorepass subsonic -srcalias 1 -destalias subsonic
+
+/usr/bin/zip -j /opt/subsonic/subsonic-booter-jar-with-dependencies.jar /opt/subsonic/ssl/subsonic.keystore
+
+/bin/rm /opt/subsonic/ssl/subsonic.keystore /opt/subsonic/ssl/subsonic.pkcs12
+</pre>
+</div>
+<div class="section" id="installation-for-weechat">
+<h3><a class="reference internal" href="#installation-for-weechat">Installation for&nbsp;weechat</a></h3>
+<p>The very capable <span class="caps">IRC</span> client <a class="reference external" href="https://weechat.org/">weechat</a> has a relay protocol allowing for remote access to the client from other things, such as a mobile browser such as <a class="reference external" href="https://www.glowing-bear.org/">Glowing Bear</a> which I use to access <span class="caps">IRC</span> from my iOS&nbsp;devices.</p>
+<p>This assumes weechat relay is already set up, to start encrypting programatically we need a task defined similiar&nbsp;to:</p>
+<pre class="literal-block">
+- name: Install certs for weechat
+  copy: src={{ item }} dest=/home/taco/.weechat/certs/{{ item }} mode=600
+  with_items:
+      - weechat.example.com.crt
+      - weechat.example.com.key
+  notify:
+      - reload weechat certs
+</pre>
+<p>And a handler such&nbsp;as:</p>
+<pre class="literal-block">
+- name: reload weechat certs
+  shell: /home/taco/.weechat/reloadcert.sh
+</pre>
+<p>Since <tt class="docutils literal">reloadcert.sh</tt> will send a <tt class="docutils literal">/relay sslcertkey</tt> via the fifo channel, ensure your weechat has it enabled with <tt class="docutils literal">plugins.var.fifo.fifo = on</tt>. If it&#8217;s on inside your <tt class="docutils literal">.weechat</tt> directory you will find a file resembling <tt class="docutils literal">weechat_fifo_123</tt> with the suffix numbers indicating&nbsp;pid.</p>
+<pre class="literal-block">
+#!/bin/bash
+
+cat /home/taco/.weechat/certs/weechat.example.com.key /home/taco/.weechat/certs/weechat.example.com.crt &gt; /home/taco/.weechat/certs/relay.pem
+for fifo in /home/taco/.weechat/weechat_fifo_*
+do
+    printf '%b' '*/relay sslcertkey\n' &gt; &quot;$fifo&quot;
+done
+</pre>
+<p>This will send the reload to all running weechat instances, but is mostly harmless if the certpaths are configured&nbsp;correctly.</p>
+</div>
+</div>
+
+            </div>
+            <!-- /.entry-content -->
+    <hr/>
+    <section class="comments" id="comments">
+        <h2>Comments</h2>
+
+        <div id="disqus_thread"></div>
+        <script type="text/javascript">
+            /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+            var disqus_shortname = 'catpipegrep'; // required: replace example with your forum shortname
+
+                    var disqus_identifier = 'getting-started-letsencrypt';
+                var disqus_url = '../../../../../posts/2015/07/26/getting-started-letsencrypt/';
+
+            var disqus_config = function () {
+                this.language = "en";
+            };
+
+            /* * * DON'T EDIT BELOW THIS LINE * * */
+            (function () {
+                var dsq = document.createElement('script');
+                dsq.type = 'text/javascript';
+                dsq.async = true;
+                dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+                (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+            })();
+        </script>
+        <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by
+            Disqus.</a></noscript>
+        <a href="http://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+    </section>
+        </article>
+    </section>
+
+        </div>
+    </div>
+</div>
+<footer>
+   <div class="container">
+      <hr>
+      <div class="row">
+         <div class="col-xs-10">&copy; 2015 Kevin Mancuso
+            &middot; Powered by <a href="https://github.com/DandyDev/pelican-bootstrap3" target="_blank">pelican-bootstrap3</a>,
+            <a href="http://docs.getpelican.com/" target="_blank">Pelican</a>,
+            <a href="http://getbootstrap.com" target="_blank">Bootstrap</a>         </div>
+         <div class="col-xs-2"><p class="pull-right"><i class="fa fa-arrow-up"></i> <a href="#">Back to top</a></p></div>
+      </div>
+   </div>
+</footer>
+<script src="../../../../../theme/js/jquery.min.js"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="../../../../../theme/js/bootstrap.min.js"></script>
+
+<!-- Enable responsive features in IE8 with Respond.js (https://github.com/scottjehl/Respond) -->
+<script src="../../../../../theme/js/respond.min.js"></script>
+
+    <!-- Disqus -->
+    <script type="text/javascript">
+        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+        var disqus_shortname = 'catpipegrep'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function () {
+            var s = document.createElement('script');
+            s.async = true;
+            s.type = 'text/javascript';
+            s.src = '//' + disqus_shortname + '.disqus.com/count.js';
+            (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+        }());
+    </script>
+    <!-- End Disqus Code -->
+    <!-- Google Analytics -->
+    <script type="text/javascript">
+
+        var _gaq = _gaq || [];
+        _gaq.push(['_setAccount', 'UA-47947008-1']);
+        _gaq.push(['_trackPageview']);
+
+        (function () {
+            var ga = document.createElement('script');
+            ga.type = 'text/javascript';
+            ga.async = true;
+            ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(ga, s);
+        })();
+    </script>
+    <!-- End Google Analytics Code -->
+
+</body>
+</html>

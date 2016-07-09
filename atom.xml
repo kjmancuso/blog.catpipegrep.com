@@ -1,5 +1,190 @@
 <?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom"><title>cat | grep</title><link href="http://blog.catpipegrep.com/" rel="alternate"></link><link href="http://blog.catpipegrep.com/atom.xml" rel="self"></link><id>http://blog.catpipegrep.com/</id><updated>2015-07-26T12:30:43-05:00</updated><entry><title>Music playback on machines with tiny storage</title><link href="http://blog.catpipegrep.com/posts/2015/07/26/macbook-music/" rel="alternate"></link><published>2015-07-26T12:30:43-05:00</published><author><name>Kevin Mancuso</name></author><id>tag:blog.catpipegrep.com,2015-07-26:posts/2015/07/26/macbook-music/</id><summary type="html">&lt;p&gt;With the advent of solid state storage, the once massive drives of spinning rust that shipped in laptops got faster but tinier. While the advent of streaming services (Spotify, Google Music, Pandora, etc) solved this for most people, I&amp;#8217;m a bit more traditional relying on my own library. I generally enjoy listening to music whilst working on the compute box, but I had three primary&amp;nbsp;requirements:&lt;/p&gt;
+<feed xmlns="http://www.w3.org/2005/Atom"><title>cat | grep</title><link href="http://blog.catpipegrep.com/" rel="alternate"></link><link href="http://blog.catpipegrep.com/atom.xml" rel="self"></link><id>http://blog.catpipegrep.com/</id><updated>2015-07-26T12:30:43-05:00</updated><entry><title>Getting started with LetsEncrypt</title><link href="http://blog.catpipegrep.com/posts/2015/07/26/getting-started-letsencrypt/" rel="alternate"></link><published>2015-07-26T12:30:43-05:00</published><author><name>Kevin Mancuso</name></author><id>tag:blog.catpipegrep.com,2015-07-26:posts/2015/07/26/getting-started-letsencrypt/</id><summary type="html">&lt;p&gt;&lt;a class="reference external" href="https://letsencrypt.org/"&gt;LetsEncrypt&lt;/a&gt; really changed the &lt;span class="caps"&gt;SSL&lt;/span&gt; game, offering free certificates, but more than that offering them in a programatic way thus paving the way for a decent automation story. However the official client, now known as &lt;a class="reference external" href="https://certbot.eff.org/"&gt;certbot&lt;/a&gt;, is lacking on certain features. Luckily there are a slew of clients that speak the &lt;a class="reference external" href="https://ietf-wg-acme.github.io/acme/"&gt;&lt;span class="caps"&gt;ACME&lt;/span&gt;&lt;/a&gt; protocol. After fiddling around with a few clients I wound up settling on a client written in Go named &lt;a class="reference external" href="https://github.com/xenolf/lego"&gt;Lego&lt;/a&gt;.&lt;/p&gt;
+&lt;div class="section" id="obtaining-the-cert"&gt;
+&lt;h2&gt;&lt;a class="reference internal" href="#obtaining-the-cert"&gt;Obtaining the&amp;nbsp;cert&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;I wanted a central location to manage my certificate lifecycle as well as having a single repository to handle the orchestration of the deployment of such certificates. As such, the default mechanism of dropping a challenge file in a webroot wouldn&amp;#8217;t work, as well as a few of the things I run don&amp;#8217;t lend itself to such an auth mechanism. In favor of this, I decided to leverage &lt;a class="reference external" href="https://ietf-wg-acme.github.io/acme/#rfc.section.7.4"&gt;dns-01&lt;/a&gt;&amp;nbsp;instead.&lt;/p&gt;
+&lt;p&gt;I like things tidy, so I keep everything inside of a directory structure as follows in &lt;tt class="docutils literal"&gt;/opt/&lt;/tt&gt;:&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+lego
+├── ansible // Where I keep the installation automation playbooks
+│&amp;nbsp;&amp;nbsp; └── roles
+│&amp;nbsp;&amp;nbsp;     ├── host1
+│&amp;nbsp;&amp;nbsp;     │&amp;nbsp;&amp;nbsp; ├── files
+│&amp;nbsp;&amp;nbsp;     │&amp;nbsp;&amp;nbsp; ├── handlers
+│&amp;nbsp;&amp;nbsp;     │&amp;nbsp;&amp;nbsp; └── tasks
+│&amp;nbsp;&amp;nbsp;     ├── host2
+│&amp;nbsp;&amp;nbsp;     │&amp;nbsp;&amp;nbsp; ├── files
+│&amp;nbsp;&amp;nbsp;     │&amp;nbsp;&amp;nbsp; ├── handlers
+│&amp;nbsp;&amp;nbsp;     │&amp;nbsp;&amp;nbsp; └── tasks
+│&amp;nbsp;&amp;nbsp;     └── host3
+│&amp;nbsp;&amp;nbsp;         ├── files
+│&amp;nbsp;&amp;nbsp;         ├── handlers
+│&amp;nbsp;&amp;nbsp;         └── tasks
+├── bin // Lego bin lives here and misc scripts
+└── data // Where Lego writes its goods
+    ├── accounts
+        │&amp;nbsp;&amp;nbsp; └── acme-v01.api.letsencrypt.org
+            │&amp;nbsp;&amp;nbsp;     └── email&amp;#64;example.com
+                │&amp;nbsp;&amp;nbsp;         └── keys
+                    └── certificates // Here be certs
+&lt;/pre&gt;
+&lt;p&gt;Since I am using the &lt;tt class="docutils literal"&gt;&lt;span class="pre"&gt;dns-01&lt;/span&gt;&lt;/tt&gt; challenge with &lt;span class="caps"&gt;AWS&lt;/span&gt; Route53, the following environment variables must be defined: &lt;tt class="docutils literal"&gt;AWS_ACCESS_KEY_ID&lt;/tt&gt; and &lt;tt class="docutils literal"&gt;AWS_SECRET_ACCESS_KEY&lt;/tt&gt;. Ensure there is a proper &lt;span class="caps"&gt;IAM&lt;/span&gt; role defined for this task, as well a corresponding policy. The Lego &lt;span class="caps"&gt;README&lt;/span&gt; provides an example policy which will get you&amp;nbsp;going:&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+{
+    &amp;quot;Version&amp;quot;: &amp;quot;2012-10-17&amp;quot;,
+    &amp;quot;Statement&amp;quot;: [
+        {
+            &amp;quot;Effect&amp;quot;: &amp;quot;Allow&amp;quot;,
+            &amp;quot;Action&amp;quot;: [
+                &amp;quot;route53:GetChange&amp;quot;,
+                &amp;quot;route53:ListHostedZonesByName&amp;quot;
+            ],
+            &amp;quot;Resource&amp;quot;: [
+                &amp;quot;*&amp;quot;
+            ]
+        },
+        {
+            &amp;quot;Effect&amp;quot;: &amp;quot;Allow&amp;quot;,
+            &amp;quot;Action&amp;quot;: [
+                &amp;quot;route53:ChangeResourceRecordSets&amp;quot;
+            ],
+            &amp;quot;Resource&amp;quot;: [
+                &amp;quot;arn:aws:route53:::hostedzone/&amp;lt;INSERT_YOUR_HOSTED_ZONE_ID_HERE&amp;gt;&amp;quot;
+            ]
+        }
+    ]
+}
+&lt;/pre&gt;
+&lt;p&gt;If you have multiple domains, in the second resource block just add a second &lt;span class="caps"&gt;ARN&lt;/span&gt; in a comma separated list. Or if you are less particular in doing things right and want to be looser on security, add &lt;tt class="docutils literal"&gt;&lt;span class="pre"&gt;arn:aws:route53:::hostedzone/*&lt;/span&gt;&lt;/tt&gt; to allow modifications to all&amp;nbsp;domains.&lt;/p&gt;
+&lt;p&gt;With that done, we can finally get our certs! This is as simple&amp;nbsp;as:&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+AWS_ACCESS_KEY_ID=&amp;quot;&amp;lt;accessid&amp;gt;&amp;quot; AWS_SECRET_ACCESS_KEY=&amp;quot;&amp;lt;secretkey&amp;gt;&amp;quot; /opt/lego/bin/lego -a --path=&amp;quot;/opt/lego/data/&amp;quot; --email=&amp;quot;email&amp;#64;example.com&amp;quot; --domain=&amp;quot;domain.com&amp;quot; --dns route53 run
+&lt;/pre&gt;
+&lt;dl class="docutils"&gt;
+&lt;dt&gt;Arguments&amp;nbsp;are:&lt;/dt&gt;
+&lt;dd&gt;&lt;table class="first last docutils option-list" frame="void" rules="none"&gt;
+&lt;col class="option" /&gt;
+&lt;col class="description" /&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="option-group"&gt;
+&lt;kbd&gt;&lt;span class="option"&gt;-a&lt;/span&gt;&lt;/kbd&gt;&lt;/td&gt;
+&lt;td&gt;Acknowledges that you agree to the current LetsEncrypt terms of service&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td class="option-group"&gt;
+&lt;kbd&gt;&lt;span class="option"&gt;--path&lt;/span&gt;&lt;/kbd&gt;&lt;/td&gt;
+&lt;td&gt;Where to stick the certs and account information&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td class="option-group"&gt;
+&lt;kbd&gt;&lt;span class="option"&gt;--email&lt;/span&gt;&lt;/kbd&gt;&lt;/td&gt;
+&lt;td&gt;The identity you want to use to register the cert with, they send you things like expiration notices&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td class="option-group"&gt;
+&lt;kbd&gt;&lt;span class="option"&gt;--domain&lt;/span&gt;&lt;/kbd&gt;&lt;/td&gt;
+&lt;td&gt;The domain you want to get the cert for&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td class="option-group"&gt;
+&lt;kbd&gt;&lt;span class="option"&gt;--dns&lt;/span&gt;&lt;/kbd&gt;&lt;/td&gt;
+&lt;td&gt;Specifies the &lt;span class="caps"&gt;DNS&lt;/span&gt; challenge, in this case route 53&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/dd&gt;
+&lt;/dl&gt;
+&lt;p&gt;You will notice that it both creates the &lt;span class="caps"&gt;DNS&lt;/span&gt; resource record to satisfy the challenge, and if everything went swimmingly will cleanup said record leaving things nice and&amp;nbsp;tidy.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="renewing-the-certs"&gt;
+&lt;h2&gt;&lt;a class="reference internal" href="#renewing-the-certs"&gt;Renewing the&amp;nbsp;certs&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;With the cert obtained, we need to ensure that the certs get renewed with the standard 90 day life of a LetsEncrypt certificate. This is as simple as changing &lt;tt class="docutils literal"&gt;run&lt;/tt&gt; to &lt;tt class="docutils literal"&gt;renew&lt;/tt&gt; and adding &lt;tt class="docutils literal"&gt;&lt;span class="pre"&gt;--days&lt;/span&gt; 30&lt;/tt&gt; to renew it within 30 days of&amp;nbsp;expiration.&lt;/p&gt;
+&lt;p&gt;But since we want to automate this, lets make a little script to do this for&amp;nbsp;us:&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+#!/bin/bash
+
+DOMAINS=&amp;quot;example.com example.org example.net&amp;quot;&amp;quot;
+AWS_ACCESS_KEY_ID=&amp;quot;&amp;lt;access_key&amp;gt;&amp;quot;
+AWS_SECRET_ACCESS_KEY=&amp;quot;&amp;lt;secret_key&amp;gt;&amp;quot;
+
+for domain in $DOMAINS; do
+    /opt/lego/bin/lego -a --path=&amp;quot;/opt/lego/data/&amp;quot; --email=&amp;quot;email&amp;#64;example.com&amp;quot; --domains=&amp;quot;$domain&amp;quot; --dns route53 renew --days 30
+    done
+&lt;/pre&gt;
+&lt;p&gt;This will iterate through the list of &lt;tt class="docutils literal"&gt;$&lt;span class="caps"&gt;DOMAINS&lt;/span&gt;&lt;/tt&gt; and will renew each one. I threw this in a cronjob to run every night, but a systemd timer is nice too if you swing that&amp;nbsp;way.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="installing-the-certs"&gt;
+&lt;h2&gt;&lt;a class="reference internal" href="#installing-the-certs"&gt;Installing the&amp;nbsp;certs&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;There probably is a more elegant way of approaching this, but Ansible seemed perfect for what is being done here. It will ensure the certs are placed on the remote servers, and will execute actions if an update has happened and will noop otherwise. A basic boilerplate requires your &lt;a class="reference external" href="http://docs.ansible.com/ansible/intro_inventory.html"&gt;inventory&lt;/a&gt; defined, I call mine &lt;cite&gt;hosts.ini&lt;/cite&gt;. In my playbook I define each host as a role to customize how each server needs to be handled. My playbook &lt;tt class="docutils literal"&gt;certificates.yaml&lt;/tt&gt; looks as&amp;nbsp;follows:&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+- hosts: host1
+  sudo: yes
+  roles:
+      - {role: 'roles/host1'}
+&lt;/pre&gt;
+&lt;p&gt;Inside of each role&amp;#8217;s &lt;tt class="docutils literal"&gt;files&lt;/tt&gt; directory I then symlink the cert and key in &lt;tt class="docutils literal"&gt;/opt/lego/data/certificates/&lt;/tt&gt; and define the specific installation plays in &lt;tt class="docutils literal"&gt;tasks&lt;/tt&gt;.&lt;/p&gt;
+&lt;p&gt;Once your playbook looks and acts reasonably, cron it&amp;nbsp;out:&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+ansible-playbook -i /opt/lego/ansible/hosts.ini /opt/lego/ansible/certificates.yaml &amp;gt; /dev/null
+&lt;/pre&gt;
+&lt;div class="section" id="installation-for-subsonic"&gt;
+&lt;h3&gt;&lt;a class="reference internal" href="#installation-for-subsonic"&gt;Installation for&amp;nbsp;Subsonic&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;Since &lt;a class="reference external" href="http://subsonic.org"&gt;Subsonic&lt;/a&gt; runs java, we have to deal with the goofy keytool shenanigans. So the task I have defined for this server&amp;nbsp;resembles:&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+---
+- name: Install certs
+  copy: src={{ item }} dest=/opt/subsonic/ssl/{{ item }} mode=0600
+  with_items:
+      - subsonic.example.com.crt
+      - subsonic.example.com.key
+  notify:
+      - generate keystore
+      - restart subsonic
+&lt;/pre&gt;
+&lt;p&gt;With a &lt;tt class="docutils literal"&gt;handler&lt;/tt&gt; definition resembling the&amp;nbsp;following:&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+- name: generate keystore
+  shell: /opt/subsonic/ssl/keytool.sh
+
+- name: restart subsonic
+  service: name=subsonic state=restarted
+&lt;/pre&gt;
+&lt;p&gt;keytool.sh is just a simple incarnation of the commands to convert the pems into the format that java is happy&amp;nbsp;with:&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+#!/bin/bash
+
+/usr/bin/openssl pkcs12 -in /opt/subsonic/ssl/subsonic.example.com.crt -inkey /opt/subsonic/ssl/subsonic.example.com.key key -export -out /opt/subsonic/ssl/subsonic.pkcs12 -password pass:subsonic
+
+/usr/bin/keytool -importkeystore -srckeystore /opt/subsonic/ssl/subsonic.pkcs12 -destkeystore /opt/subsonic/ssl/subsonic.keystore -srcstoretype PKCS12 -srcstorepass subsonic -deststorepass subsonic -srcalias 1 -destalias subsonic
+
+/usr/bin/zip -j /opt/subsonic/subsonic-booter-jar-with-dependencies.jar /opt/subsonic/ssl/subsonic.keystore
+
+/bin/rm /opt/subsonic/ssl/subsonic.keystore /opt/subsonic/ssl/subsonic.pkcs12
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="installation-for-weechat"&gt;
+&lt;h3&gt;&lt;a class="reference internal" href="#installation-for-weechat"&gt;Installation for&amp;nbsp;weechat&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;The very capable &lt;span class="caps"&gt;IRC&lt;/span&gt; client &lt;a class="reference external" href="https://weechat.org/"&gt;weechat&lt;/a&gt; has a relay protocol allowing for remote access to the client from other things, such as a mobile browser such as &lt;a class="reference external" href="https://www.glowing-bear.org/"&gt;Glowing Bear&lt;/a&gt; which I use to access &lt;span class="caps"&gt;IRC&lt;/span&gt; from my iOS&amp;nbsp;devices.&lt;/p&gt;
+&lt;p&gt;This assumes weechat relay is already set up, to start encrypting programatically we need a task defined similiar&amp;nbsp;to:&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+- name: Install certs for weechat
+  copy: src={{ item }} dest=/home/taco/.weechat/certs/{{ item }} mode=600
+  with_items:
+      - weechat.example.com.crt
+      - weechat.example.com.key
+  notify:
+      - reload weechat certs
+&lt;/pre&gt;
+&lt;p&gt;And a handler such&amp;nbsp;as:&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+- name: reload weechat certs
+  shell: /home/taco/.weechat/reloadcert.sh
+&lt;/pre&gt;
+&lt;p&gt;Since &lt;tt class="docutils literal"&gt;reloadcert.sh&lt;/tt&gt; will send a &lt;tt class="docutils literal"&gt;/relay sslcertkey&lt;/tt&gt; via the fifo channel, ensure your weechat has it enabled with &lt;tt class="docutils literal"&gt;plugins.var.fifo.fifo = on&lt;/tt&gt;. If it&amp;#8217;s on inside your &lt;tt class="docutils literal"&gt;.weechat&lt;/tt&gt; directory you will find a file resembling &lt;tt class="docutils literal"&gt;weechat_fifo_123&lt;/tt&gt; with the suffix numbers indicating&amp;nbsp;pid.&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+#!/bin/bash
+
+cat /home/taco/.weechat/certs/weechat.example.com.key /home/taco/.weechat/certs/weechat.example.com.crt &amp;gt; /home/taco/.weechat/certs/relay.pem
+for fifo in /home/taco/.weechat/weechat_fifo_*
+do
+    printf '%b' '*/relay sslcertkey\n' &amp;gt; &amp;quot;$fifo&amp;quot;
+done
+&lt;/pre&gt;
+&lt;p&gt;This will send the reload to all running weechat instances, but is mostly harmless if the certpaths are configured&amp;nbsp;correctly.&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+</summary><category term="letsencrypt ansible subsonic weechat"></category></entry><entry><title>Music playback on machines with tiny storage</title><link href="http://blog.catpipegrep.com/posts/2015/07/26/macbook-music/" rel="alternate"></link><published>2015-07-26T12:30:43-05:00</published><author><name>Kevin Mancuso</name></author><id>tag:blog.catpipegrep.com,2015-07-26:posts/2015/07/26/macbook-music/</id><summary type="html">&lt;p&gt;With the advent of solid state storage, the once massive drives of spinning rust that shipped in laptops got faster but tinier. While the advent of streaming services (Spotify, Google Music, Pandora, etc) solved this for most people, I&amp;#8217;m a bit more traditional relying on my own library. I generally enjoy listening to music whilst working on the compute box, but I had three primary&amp;nbsp;requirements:&lt;/p&gt;
 &lt;ol class="arabic simple"&gt;
 &lt;li&gt;Not iTunes (are there non-muggles who like&amp;nbsp;iTunes?)&lt;/li&gt;
 &lt;li&gt;Leverages central storage for actual music data, as to not duplicate the data and save disk on&amp;nbsp;workstation&lt;/li&gt;
